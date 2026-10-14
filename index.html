@@ -36,7 +36,8 @@ svg{display:block}
 .cal{background:var(--n900);border-radius:28px;padding:14px 12px 6px}
 .cal-top{display:flex;align-items:center;justify-content:space-between;padding:0 6px 10px}
 .cal-title{display:flex;align-items:center;gap:6px;color:var(--n100);font-size:20px}
-.chev{display:flex;transition:transform .25s}
+.chev{display:flex}
+.chev.anim{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
 .cal-nav{display:flex;align-items:center;gap:4px}
 .today-btn{height:30px;padding:0 12px;border-radius:999px;background:var(--n800);color:var(--a400);font:600 12px var(--body);margin-right:4px;animation:pop .2s}
 .ibtn{width:30px;height:30px;border-radius:999px;color:var(--n400);display:flex;align-items:center;justify-content:center;transition:background .15s}
@@ -44,16 +45,23 @@ svg{display:block}
 @media(hover:hover){.ibtn:hover{background:var(--n800)}}
 .wd{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font:600 11px var(--body);color:var(--n600);letter-spacing:.04em;padding-bottom:4px}
 .wd span:nth-child(n+6){color:var(--a700)}
-.grid{display:grid;grid-template-columns:repeat(7,1fr);row-gap:2px;touch-action:pan-y}
-.day{height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.gridwrap{overflow:hidden;height:48px;will-change:height}
+.gridwrap.anim{transition:height .32s cubic-bezier(.2,.8,.2,1)}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);touch-action:pan-y;--outop:1}
+.grid.anim{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+.grid.anim .day.out{transition:opacity .32s}
+.day{height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
 .day .n{width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font:600 15px var(--body);color:var(--n100);transition:background .15s,color .15s;font-variant-numeric:tabular-nums}
 .day .dot{width:4px;height:4px;border-radius:999px;margin-top:-8px}
 .day.has .dot{background:var(--b400)}
 .day.today .n{color:var(--a400);box-shadow:inset 0 0 0 1.5px var(--a700)}
 .day.sel .n{background:var(--a500);color:var(--n900);box-shadow:none}
 .day.sel .dot{background:transparent}
-.day.out{opacity:.3}
-.handle{display:flex;width:100%;justify-content:center;padding:8px 0 4px}
+.day.out{opacity:var(--outop)}
+.handle{display:flex;width:100%;justify-content:center;padding:10px 0 8px;margin-bottom:-4px;cursor:grab;touch-action:none}
+.handle:active{cursor:grabbing}
+.handle span{transition:background .15s,width .15s}
+.handle:active span{background:var(--n600);width:44px}
 .handle span,.grab{width:36px;height:4px;border-radius:999px;background:var(--n700)}
 
 /* заголовок дня */
@@ -288,13 +296,14 @@ const every=f=>f.mode==='none'?0:f.mode==='daily'?1:f.mode==='weekly'?7:f.n;
 const main=$('main');
 function render(){
   const ex=S.expanded,cur=fromKey(S.cursor),cm=cur.getMonth(),cy=cur.getFullYear(),sel=S.selected;
-  let start,count;
-  if(ex){const first=new Date(cy,cm,1),off=(first.getDay()+6)%7,dim=new Date(cy,cm+1,0).getDate();start=addDays(toKey(first),-off);count=Math.ceil((off+dim)/7)*7}
-  else{start=addDays(S.cursor,-((cur.getDay()+6)%7));count=7}
+  // всегда рисуем месяц целиком; в свёрнутом виде видна только строка недели курсора (см. applyCal)
+  const first=new Date(cy,cm,1),off=(first.getDay()+6)%7,dim=new Date(cy,cm+1,0).getDate();
+  const start=addDays(toKey(first),-off);
+  CAL.rows=Math.ceil((off+dim)/7);CAL.row=Math.floor((off+cur.getDate()-1)/7);
   let daysHtml='';
-  for(let i=0;i<count;i++){
+  for(let i=0;i<CAL.rows*7;i++){
     const k=addDays(start,i),d=fromKey(k);
-    const cls=['day',k===sel&&'sel',k===S.today&&'today',ex&&d.getMonth()!==cm&&'out',S.tasks.some(t=>occurs(t,k))&&'has'].filter(Boolean).join(' ');
+    const cls=['day',k===sel&&'sel',k===S.today&&'today',d.getMonth()!==cm&&'out',S.tasks.some(t=>occurs(t,k))&&'has'].filter(Boolean).join(' ');
     daysHtml+=`<button class="${cls}" data-a="day" data-k="${k}"><span class="n">${d.getDate()}</span><span class="dot"></span></button>`;
   }
   const showToday=sel!==S.today||S.cursor!==sel;
@@ -324,7 +333,7 @@ function render(){
   main.innerHTML=`
     <div class="cal">
       <div class="cal-top">
-        <button class="cal-title h" data-a="toggleCal">${MONTHS[cm]} ${cy}<span class="chev" style="transform:rotate(${ex?180:0}deg)">${ICON.chev}</span></button>
+        <button class="cal-title h" data-a="toggleCal">${MONTHS[cm]} ${cy}<span class="chev" id="chev">${ICON.chev}</span></button>
         <div class="cal-nav">
           ${showToday?'<button class="today-btn" data-a="today">Сегодня</button>':''}
           <button class="ibtn" data-a="prev" aria-label="Назад">${ICON.left}</button>
@@ -332,8 +341,8 @@ function render(){
         </div>
       </div>
       <div class="wd"><span>ПН</span><span>ВТ</span><span>СР</span><span>ЧТ</span><span>ПТ</span><span>СБ</span><span>ВС</span></div>
-      <div class="grid" id="grid">${daysHtml}</div>
-      <button class="handle" data-a="toggleCal" aria-label="Развернуть календарь"><span></span></button>
+      <div class="gridwrap" id="gw"><div class="grid" id="grid">${daysHtml}</div></div>
+      <div class="handle" id="handle" role="button" tabindex="0" aria-label="Развернуть календарь"><span></span></div>
     </div>
     <div class="dayhead">
       <div>${rel?`<div class="rel">${rel}</div>`:''}<div class="dtitle h">${WD_FULL[sd.getDay()]}, ${sd.getDate()} ${MONTHS_G[sd.getMonth()]}</div></div>
@@ -349,6 +358,55 @@ function render(){
       <button data-a="new">Добавить план</button>
     </div>`}`;
   const ch=main.querySelector('.chips');if(ch)ch.scrollLeft=chipsScroll;
+  // календарь: стартуем с того, что было на экране, и плавно едем к нужному состоянию
+  const target=ex?1:0;
+  applyCal(CAL.p,false);
+  if(CAL.p!==target){$('gw').offsetHeight;applyCal(target,true)}
+  bindHandle();
+}
+
+// ---------- раскрытие календаря: p = 0 (неделя) … 1 (месяц) ----------
+const ROW=48,CAL={p:0,rows:5,row:0};
+function applyCal(p,anim){
+  CAL.p=p;
+  const gw=$('gw'),grid=$('grid'),chev=$('chev');if(!gw)return;
+  gw.classList.toggle('anim',anim);grid.classList.toggle('anim',anim);chev.classList.toggle('anim',anim);
+  gw.style.height=ROW+p*(CAL.rows-1)*ROW+'px';
+  grid.style.transform=`translateY(${-(1-p)*CAL.row*ROW}px)`;
+  grid.style.setProperty('--outop',1-.7*p);
+  chev.style.transform=`rotate(${p*180}deg)`;
+}
+function setExpanded(ex){
+  haptic.tap();
+  if(S.expanded===ex){applyCal(ex?1:0,true);return}
+  S.expanded=ex;if(!ex)S.cursor=S.selected;
+  render();
+}
+function bindHandle(){
+  const h=$('handle');let y0,p0,last,drag=null;
+  h.addEventListener('pointerdown',e=>{
+    h.setPointerCapture(e.pointerId);
+    y0=e.clientY;p0=CAL.p;last=[{y:e.clientY,t:e.timeStamp}];drag=false;
+  });
+  h.addEventListener('pointermove',e=>{
+    if(drag===null)return;
+    const dy=e.clientY-y0;if(!drag&&Math.abs(dy)<4)return;
+    drag=true;
+    let p=p0+dy/((CAL.rows-1)*ROW);
+    p=p<0?p*.25:p>1?1+(p-1)*.25:p;          // лёгкое «резиновое» сопротивление за краями
+    applyCal(Math.max(-.08,Math.min(1.08,p)),false);
+    last.push({y:e.clientY,t:e.timeStamp});if(last.length>5)last.shift();
+  });
+  const end=e=>{
+    if(drag===null)return;
+    const wasDrag=drag;drag=null;
+    if(!wasDrag)return setExpanded(!S.expanded);   // просто тап по плашке
+    const a=last[0],b=last[last.length-1],v=(b.y-a.y)/Math.max(1,b.t-a.t);  // px/ms
+    const ex=v>.3?true:v<-.3?false:CAL.p>.5;
+    setExpanded(ex);
+  };
+  h.addEventListener('pointerup',end);h.addEventListener('pointercancel',end);
+  h.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setExpanded(!S.expanded)}});
 }
 // прогресс-бар анимируется: обновляем ширину после перерисовки
 const _render=render;
@@ -469,7 +527,7 @@ document.addEventListener('click',e=>{
   const a=el.dataset.a;
   switch(a){
     case 'day':if(swiped)return;S.selected=S.cursor=el.dataset.k;S.expanded=false;haptic.tap();render();break;
-    case 'toggleCal':S.expanded=!S.expanded;if(!S.expanded)S.cursor=S.selected;haptic.tap();render();break;
+    case 'toggleCal':setExpanded(!S.expanded);break;
     case 'prev':step(-1);break;
     case 'next':step(1);break;
     case 'today':S.selected=S.cursor=S.today;haptic.tap();render();break;
