@@ -45,7 +45,8 @@ svg{display:block}
 @media(hover:hover){.ibtn:hover{background:var(--n800)}}
 .wd{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font:600 11px var(--body);color:var(--n600);letter-spacing:.04em;padding-bottom:4px}
 .wd span:nth-child(n+6){color:var(--a700)}
-.gridwrap{overflow:hidden;height:48px;will-change:height}
+.gridwrap{overflow:hidden;height:48px;will-change:height;touch-action:pan-y}
+.slide{will-change:transform,opacity}
 .gridwrap.anim{transition:height .32s cubic-bezier(.2,.8,.2,1)}
 .grid{display:grid;grid-template-columns:repeat(7,1fr);touch-action:pan-y;--outop:1}
 .grid.anim{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
@@ -152,6 +153,38 @@ svg{display:block}
 .del.on{display:flex}
 .del:active{background:var(--n800)}
 
+/* перетаскивание шторки */
+.sh-drag{touch-action:none;margin:-10px -18px 0;padding:10px 18px 0;cursor:grab}
+.sh-drag .grabrow{display:flex;justify-content:center;padding:4px 0 14px}
+.sh-drag:active .grab{background:var(--n600);width:44px}
+.grab{transition:background .15s,width .15s}
+.sh-drag .sh-head{margin-bottom:10px}
+
+/* описание и файлы */
+#desc{width:100%;display:block;margin-top:10px;min-height:76px;max-height:180px;resize:none;border-radius:24px;border:0;background:var(--n800);color:var(--n100);padding:14px 20px;font:400 15px/1.45 var(--body);outline:none;color-scheme:dark;user-select:text;-webkit-user-select:text}
+#desc::placeholder{color:var(--n600)}
+#desc:focus{box-shadow:inset 0 0 0 1.5px var(--a700)}
+.files{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.files:empty{display:none}
+.file{display:flex;align-items:center;gap:12px;padding:8px;border-radius:20px;background:var(--n800);cursor:pointer;animation:pop .2s}
+.file .th{width:48px;height:48px;border-radius:14px;background:var(--n700);color:var(--n300);display:flex;align-items:center;justify-content:center;font:600 11px var(--body);overflow:hidden;flex:none;text-transform:uppercase}
+.file .th img{width:100%;height:100%;object-fit:cover}
+.file .fi{flex:1;min-width:0}
+.file .fn{font:600 14px var(--body);color:var(--n100);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file .fs{font:400 12px var(--body);color:var(--n500);margin-top:2px}
+.file .rm{width:32px;height:32px;border-radius:999px;color:var(--n400);display:flex;align-items:center;justify-content:center;flex:none}
+.file .rm:active{background:var(--n700)}
+.attach{margin-top:10px;height:44px;width:100%;border-radius:999px;background:var(--n800);color:var(--a400);font:600 14px var(--body);display:flex;align-items:center;justify-content:center;gap:8px}
+.attach:active{background:var(--n700)}
+.card .desc{margin-top:4px;font:400 13px/1.4 var(--body);color:var(--n400);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.card .clip{display:flex;align-items:center;gap:4px}
+#viewer{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;padding:calc(var(--safe-top) + 16px) 16px calc(var(--safe-bot) + 16px)}
+#viewer.on{display:flex;animation:pop .2s}
+#viewer img{max-width:100%;max-height:calc(100% - 70px);object-fit:contain;border-radius:12px}
+#viewer .vbar{display:flex;gap:10px;margin-top:16px}
+#viewer button{height:44px;padding:0 20px;border-radius:999px;background:var(--n800);color:var(--n100);font:600 14px var(--body)}
+#viewer button:first-child{background:var(--a500);color:var(--n900)}
+
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 @keyframes pop{from{opacity:0;transform:scale(.96)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -168,12 +201,18 @@ svg{display:block}
 <div id="sheetwrap">
   <div class="backdrop" data-a="close"></div>
   <div class="sheet nosb" role="dialog" aria-modal="true">
-    <div style="display:flex;justify-content:center;padding-bottom:10px"><span class="grab"></span></div>
-    <div class="sh-head">
-      <span class="sh-title h" id="shTitle"></span>
-      <button class="xbtn" data-a="close" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <div class="sh-drag" id="shDrag">
+      <div class="grabrow"><span class="grab"></span></div>
+      <div class="sh-head">
+        <span class="sh-title h" id="shTitle"></span>
+        <button class="xbtn" data-a="close" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
     </div>
-    <input id="title" placeholder="Что планируете?" maxlength="120" autocomplete="off" enterkeyhint="done">
+    <input id="title" placeholder="Тема задачи" maxlength="120" autocomplete="off" enterkeyhint="next">
+    <textarea id="desc" placeholder="Описание (необязательно)" maxlength="2000" rows="3"></textarea>
+    <div class="files" id="files"></div>
+    <button class="attach" data-a="attach"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Прикрепить файл</button>
+    <input type="file" id="fileIn" multiple hidden>
     <div class="lrow"><span class="lbl">Время</span><div class="presets" id="presets"></div></div>
     <div class="wheel" id="wheel">
       <div class="band"></div>
@@ -198,6 +237,8 @@ svg{display:block}
     <button class="del" id="del" data-a="del"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg><span id="delLbl"></span></button>
   </div>
 </div>
+
+<div id="viewer"><img id="vimg" alt=""><div class="vbar"><button data-a="vshare">Сохранить / поделиться</button><button data-a="vclose">Закрыть</button></div></div>
 
 <script>
 // ---------- утилиты дат (всё в локальном времени) ----------
@@ -227,6 +268,9 @@ const ICON={
   left:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
   right:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
   repeat:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>',
+  clip:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+  doc:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+  x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
   check:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
   clock:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
 };
@@ -289,7 +333,7 @@ function load(){
 const today=toKey(new Date());
 let saved={};try{saved=JSON.parse(localStorage.getItem(LS))||{}}catch(e){}  // кэш до ответа сервера
 const S={today,selected:today,cursor:today,expanded:false,cat:'all',sheet:false,editId:null,
-  form:{title:'',time:'',cat:'work',mode:'none',n:3},tasks:saved.tasks||[],done:saved.done||{}};
+  form:{title:'',desc:'',files:[],time:'',cat:'work',mode:'none',n:3},tasks:saved.tasks||[],done:saved.done||{}};
 const every=f=>f.mode==='none'?0:f.mode==='daily'?1:f.mode==='weekly'?7:f.n;
 
 // ---------- главный экран ----------
@@ -324,7 +368,8 @@ function render(){
       <div class="card" data-a="open" data-id="${t.id}">
         <span class="stripe" style="background:${c.color}"></span>
         <div class="body"><div class="t">${esc(t.title)}</div>
-          <div class="meta"><span>${c.name}</span>${t.every?`<span class="rep">${ICON.repeat}${repeatLabel(t.every)}</span>`:''}</div></div>
+          <div class="meta"><span>${c.name}</span>${t.every?`<span class="rep">${ICON.repeat}${repeatLabel(t.every)}</span>`:''}${t.files&&t.files.length?`<span class="clip">${ICON.clip}${t.files.length}</span>`:''}</div>
+          ${t.desc?`<div class="desc">${esc(t.desc)}</div>`:''}</div>
         <button class="cb" data-a="toggle" data-id="${t.id}" aria-label="Выполнено" style="${dn?`background:${c.color};box-shadow:inset 0 0 0 2px ${c.color}`:''}">${ICON.check}</button>
       </div>
     </div>`}).join('');
@@ -341,7 +386,7 @@ function render(){
         </div>
       </div>
       <div class="wd"><span>ПН</span><span>ВТ</span><span>СР</span><span>ЧТ</span><span>ПТ</span><span>СБ</span><span>ВС</span></div>
-      <div class="gridwrap" id="gw"><div class="grid" id="grid">${daysHtml}</div></div>
+      <div class="gridwrap" id="gw"><div class="slide" id="slide"><div class="grid" id="grid">${daysHtml}</div></div></div>
       <div class="handle" id="handle" role="button" tabindex="0" aria-label="Развернуть календарь"><span></span></div>
     </div>
     <div class="dayhead">
@@ -362,8 +407,14 @@ function render(){
   const target=ex?1:0;
   applyCal(CAL.p,false);
   if(CAL.p!==target){$('gw').offsetHeight;applyCal(target,true)}
-  bindHandle();
+  bindHandle();bindSwipe();
+  if(slideIn){   // после листания новая сетка выезжает с той стороны, куда свайпнули
+    const s=$('slide');s.style.transition='none';s.style.transform=`translateX(${slideIn*60}%)`;s.style.opacity='0';
+    s.offsetWidth;s.style.transition='transform .3s cubic-bezier(.2,.8,.2,1),opacity .3s';s.style.transform='';s.style.opacity='';
+    slideIn=0;
+  }
 }
+let slideIn=0;
 
 // ---------- раскрытие календаря: p = 0 (неделя) … 1 (месяц) ----------
 const ROW=48,CAL={p:0,rows:5,row:0};
@@ -415,18 +466,44 @@ render=function(){const prev=main.querySelector('.bar div')?.style.width;_render
 function step(dir){
   if(S.expanded){const c=fromKey(S.cursor);S.cursor=toKey(new Date(c.getFullYear(),c.getMonth()+dir,1))}
   else S.cursor=addDays(S.cursor,dir*7);
-  haptic.tap();render();
+  slideIn=dir;haptic.tap();render();
 }
 
-// свайп по календарю — листать
-let sx=null,sy=null;
-main.addEventListener('touchstart',e=>{if(e.target.closest('#grid')){sx=e.touches[0].clientX;sy=e.touches[0].clientY}else sx=null},{passive:true});
-main.addEventListener('touchend',e=>{if(sx==null)return;const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;sx=null;
-  if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5){swiped=true;step(dx<0?1:-1);setTimeout(()=>swiped=false,50)}});
+// свайп по календарю: сетка едет за пальцем, при отпускании листает месяц (в свёрнутом виде — неделю)
 let swiped=false;
+function bindSwipe(){
+  const gw=$('gw'),slide=$('slide');let x0=null,y0,dx=0,mode=null,last=[];
+  gw.addEventListener('pointerdown',e=>{x0=e.clientX;y0=e.clientY;dx=0;mode=null;last=[{x:e.clientX,t:e.timeStamp}]});
+  gw.addEventListener('pointermove',e=>{
+    if(x0===null)return;
+    const mx=e.clientX-x0,my=e.clientY-y0;
+    if(mode===null){
+      if(Math.abs(mx)<8&&Math.abs(my)<8)return;
+      mode=Math.abs(mx)>Math.abs(my)?'x':'y';
+      if(mode==='x'){gw.setPointerCapture(e.pointerId);slide.style.transition='none'}
+    }
+    if(mode!=='x')return;
+    dx=mx;slide.style.transform=`translateX(${dx}px)`;slide.style.opacity=String(1-Math.min(.6,Math.abs(dx)/gw.offsetWidth));
+    last.push({x:e.clientX,t:e.timeStamp});if(last.length>5)last.shift();
+  });
+  const end=()=>{
+    if(x0===null)return;
+    const was=mode==='x';x0=null;mode=null;
+    if(!was)return;
+    swiped=true;setTimeout(()=>swiped=false,80);
+    const w=gw.offsetWidth,a=last[0],b=last[last.length-1],v=(b.x-a.x)/Math.max(1,b.t-a.t);
+    const dir=(dx<-w*.25||v<-.4)?1:(dx>w*.25||v>.4)?-1:0;
+    slide.style.transition='transform .22s cubic-bezier(.3,.7,.4,1),opacity .22s';
+    if(!dir){slide.style.transform='';slide.style.opacity='';return}
+    slide.style.transform=`translateX(${-dir*w}px)`;slide.style.opacity='0';
+    setTimeout(()=>step(dir),200);
+  };
+  gw.addEventListener('pointerup',end);gw.addEventListener('pointercancel',end);
+}
 
 // ---------- шит ----------
-const wrap=$('sheetwrap'),hcol=$('hcol'),mcol=$('mcol'),titleIn=$('title');
+const wrap=$('sheetwrap'),hcol=$('hcol'),mcol=$('mcol'),titleIn=$('title'),descIn=$('desc');
+const sheetEl=document.querySelector('.sheet'),backdropEl=document.querySelector('.backdrop');
 hcol.innerHTML=Array.from({length:24*5},(_,i)=>`<div data-i="${i}">${pad(i%24)}</div>`).join('');
 mcol.innerHTML=Array.from({length:60*5},(_,i)=>`<div data-i="${i}">${pad(i%60)}</div>`).join('');
 let userWheel=false;
@@ -490,36 +567,132 @@ function onWheelScroll(){
 });
 
 function openSheet(t){
-  S.form=t?{title:t.title,time:t.time,cat:t.cat,mode:modeOf(t.every),n:t.every>1&&t.every!==7?t.every:3}
-          :{title:'',time:'',cat:S.cat!=='all'?S.cat:'work',mode:'none',n:3};
+  S.form=t?{title:t.title,desc:t.desc||'',files:(t.files||[]).map(x=>({...x})),time:t.time,cat:t.cat,mode:modeOf(t.every),n:t.every>1&&t.every!==7?t.every:3}
+          :{title:'',desc:'',files:[],time:'',cat:S.cat!=='all'?S.cat:'work',mode:'none',n:3};
   S.editId=t?t.id:null;S.sheet=true;
-  titleIn.value=S.form.title;
+  titleIn.value=S.form.title;descIn.value=S.form.desc;growDesc();
+  sheetEl.scrollTop=0;
   wrap.classList.add('open');
-  renderSheet();syncWheels(S.form.time,false);
+  renderSheet();renderFiles();syncWheels(S.form.time,false);
   if(inTG)TG.BackButton.show();
   haptic.hit();
   if(!t)setTimeout(()=>titleIn.focus({preventScroll:true}),340);
 }
 function closeSheet(){
   if(!S.sheet)return;
-  S.sheet=false;wrap.classList.remove('open');titleIn.blur();
+  S.sheet=false;wrap.classList.remove('open');titleIn.blur();descIn.blur();
+  sheetEl.style.transform='';sheetEl.style.transition='';backdropEl.style.opacity='';backdropEl.style.transition='';
   if(inTG)TG.BackButton.hide();
 }
 function saveTask(){
   const f=S.form;if(!f.title.trim())return;
-  const data={title:f.title.trim(),time:f.time,cat:f.cat,every:every(f)};
+  const old=(S.editId&&S.tasks.find(t=>t.id===S.editId)?.files)||[];
+  const data={title:f.title.trim(),desc:f.desc.trim(),files:f.files.map(({id,name,type,size})=>({id,name,type,size})),time:f.time,cat:f.cat,every:every(f)};
   S.tasks=S.editId?S.tasks.map(t=>t.id===S.editId?{...t,...data}:t):[...S.tasks,{id:Date.now(),date:S.selected,...data}];
+  // файлы лежат в IndexedDB на этом устройстве: пишем новые, удаляем убранные
+  Promise.all([
+    ...f.files.filter(x=>x.blob).map(x=>idb.put(x.id,x.blob)),
+    ...old.filter(o=>!f.files.some(x=>x.id===o.id)).map(o=>idb.del(o.id)),
+  ]).catch(()=>{const m='Не удалось сохранить вложения на устройстве';inTG&&ver('6.2')?TG.showAlert(m):alert(m)});
   haptic.ok();closeSheet();persist();render();
 }
 function removeTask(){
   const t=S.tasks.find(x=>x.id===S.editId);if(!t)return;
-  const go=()=>{S.tasks=S.tasks.filter(x=>x.id!==t.id);for(const k in S.done)if(k.startsWith(t.id+'|'))delete S.done[k];haptic.hit('medium');closeSheet();persist();render()};
+  const go=()=>{S.tasks=S.tasks.filter(x=>x.id!==t.id);for(const k in S.done)if(k.startsWith(t.id+'|'))delete S.done[k];(t.files||[]).forEach(x=>idb.del(x.id).catch(()=>{}));haptic.hit('medium');closeSheet();persist();render()};
   if(t.every&&inTG&&ver('6.2'))TG.showConfirm(`Удалить всю серию «${t.title}»?`,ok=>ok&&go());
   else go();
 }
 
 titleIn.addEventListener('input',()=>{S.form.title=titleIn.value;$('save').disabled=!S.form.title.trim()});
-titleIn.addEventListener('keydown',e=>{if(e.key==='Enter')titleIn.blur()});
+titleIn.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();descIn.focus()}});
+function growDesc(){descIn.style.height='auto';descIn.style.height=Math.min(180,Math.max(76,descIn.scrollHeight))+'px'}
+descIn.addEventListener('input',()=>{S.form.desc=descIn.value;growDesc()});
+
+// ---------- вложения: файлы хранятся в IndexedDB на этом телефоне (в Telegram Cloud им не поместиться) ----------
+const idb=(()=>{
+  let p;
+  const open=()=>p||(p=new Promise((res,rej)=>{try{const r=indexedDB.open('tg-planner-files',1);r.onupgradeneeded=()=>r.result.createObjectStore('f');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}}));
+  const tx=(mode,fn)=>open().then(db=>new Promise((res,rej)=>{const t=db.transaction('f',mode),r=fn(t.objectStore('f'));t.oncomplete=()=>res(r&&r.result);t.onerror=t.onabort=()=>rej(t.error)}));
+  return{put:(k,v)=>tx('readwrite',s=>s.put(v,k)),get:k=>tx('readonly',s=>s.get(k)),del:k=>tx('readwrite',s=>s.delete(k))};
+})();
+const MAX_FILE=25*1024*1024,MAX_FILES=10;
+const urls=new Map();
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const fmtSize=n=>n<1024?n+' Б':n<1048576?Math.round(n/1024)+' КБ':(n/1048576).toFixed(1).replace('.',',')+' МБ';
+const alertMsg=m=>inTG&&ver('6.2')?TG.showAlert(m):alert(m);
+async function getBlob(f){
+  if(f.blob)return f.blob;
+  try{return await idb.get(f.id)||null}catch(e){return null}
+}
+async function getUrl(f){
+  if(urls.has(f.id))return urls.get(f.id);
+  const b=await getBlob(f);if(!b)return null;
+  const u=URL.createObjectURL(b);urls.set(f.id,u);return u;
+}
+function renderFiles(){
+  const box=$('files');
+  box.innerHTML=S.form.files.map(f=>{
+    const img=(f.type||'').startsWith('image/');
+    const ext=(f.name.split('.').pop()||'').slice(0,4);
+    return `<div class="file" data-a="openfile" data-id="${f.id}">
+      <div class="th">${img?`<img data-th="${f.id}" alt="">`:ICON.doc}</div>
+      <div class="fi"><div class="fn">${esc(f.name)}</div><div class="fs">${img?'':ext?ext.toUpperCase()+' · ':''}${fmtSize(f.size)}</div></div>
+      <button class="rm" data-a="rmfile" data-id="${f.id}" aria-label="Убрать файл">${ICON.x}</button>
+    </div>`}).join('');
+  box.querySelectorAll('img[data-th]').forEach(im=>{
+    const f=S.form.files.find(x=>x.id===im.dataset.th);
+    getUrl(f).then(u=>{if(u)im.src=u;else im.replaceWith(Object.assign(document.createElement('span'),{innerHTML:ICON.doc}))});
+  });
+}
+function addFiles(list){
+  for(const file of list){
+    if(S.form.files.length>=MAX_FILES){alertMsg(`Не больше ${MAX_FILES} файлов к одной задаче`);break}
+    if(file.size>MAX_FILE){alertMsg(`«${file.name}» больше 25 МБ — не прикрепил`);continue}
+    S.form.files.push({id:uid(),name:file.name||'файл',type:file.type||'',size:file.size,blob:file});
+  }
+  haptic.tap();renderFiles();
+}
+$('fileIn').addEventListener('change',e=>{addFiles([...e.target.files]);e.target.value=''});
+
+let viewing=null;
+async function openFile(f){
+  const blob=await getBlob(f);
+  if(!blob)return alertMsg('Этого файла нет на этом устройстве: вложения хранятся только на том телефоне, где их добавили.');
+  if((f.type||'').startsWith('image/')){
+    viewing={f,blob};$('vimg').src=await getUrl(f);$('viewer').classList.add('on');
+  }else saveFile(f,blob);
+}
+async function saveFile(f,blob){
+  const file=new File([blob],f.name,{type:f.type||'application/octet-stream'});
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});return}}catch(e){if(e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name;document.body.appendChild(a);a.click();a.remove();
+}
+
+// ---------- шторка тянется за ползунок и закрывается свайпом вниз ----------
+(function(){
+  const dz=$('shDrag');let y0=null,drag=false,dy=0,last=[];
+  dz.addEventListener('pointerdown',e=>{y0=e.clientY;drag=false;dy=0;last=[{y:e.clientY,t:e.timeStamp}]});
+  dz.addEventListener('pointermove',e=>{
+    if(y0===null)return;
+    dy=e.clientY-y0;
+    if(!drag){if(Math.abs(dy)<5)return;drag=true;dz.setPointerCapture(e.pointerId);sheetEl.style.transition='none';backdropEl.style.transition='none';titleIn.blur();descIn.blur()}
+    const y=dy<0?dy*.15:dy;                       // вверх — лёгкое сопротивление
+    sheetEl.style.transform=`translateY(${y}px)`;
+    backdropEl.style.opacity=String(Math.max(0,1-Math.max(0,y)/sheetEl.offsetHeight));
+    last.push({y:e.clientY,t:e.timeStamp});if(last.length>5)last.shift();
+  });
+  const end=()=>{
+    if(y0===null)return;
+    const was=drag;y0=null;drag=false;
+    if(!was)return;
+    swiped=true;setTimeout(()=>swiped=false,80);
+    const a=last[0],b=last[last.length-1],v=(b.y-a.y)/Math.max(1,b.t-a.t);
+    sheetEl.style.transition='';backdropEl.style.transition='';
+    if(dy>sheetEl.offsetHeight*.3||v>.5){haptic.tap();closeSheet()}      // closeSheet убирает inline-стили → шторка доезжает вниз
+    else{sheetEl.style.transform='';backdropEl.style.opacity=''}          // иначе возвращается на место
+  };
+  dz.addEventListener('pointerup',end);dz.addEventListener('pointercancel',end);
+})();
 
 // ---------- события ----------
 document.addEventListener('click',e=>{
@@ -544,6 +717,11 @@ document.addEventListener('click',e=>{
     case 'mode':S.form.mode=el.dataset.id;haptic.tap();renderSheet();break;
     case 'dec':S.form.n=Math.max(2,S.form.n-1);haptic.tap();renderSheet();break;
     case 'inc':S.form.n=Math.min(60,S.form.n+1);haptic.tap();renderSheet();break;
+    case 'attach':$('fileIn').click();break;
+    case 'rmfile':e.stopPropagation();S.form.files=S.form.files.filter(f=>f.id!==el.dataset.id);haptic.tap();renderFiles();break;
+    case 'openfile':openFile(S.form.files.find(f=>f.id===el.dataset.id));break;
+    case 'vclose':$('viewer').classList.remove('on');viewing=null;break;
+    case 'vshare':if(viewing)saveFile(viewing.f,viewing.blob);break;
     case 'save':saveTask();break;
     case 'del':removeTask();break;
   }
