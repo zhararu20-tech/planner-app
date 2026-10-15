@@ -30,7 +30,26 @@ svg{display:block}
 .h{font-family:var(--head);font-weight:600;letter-spacing:-.01em}
 
 #app{position:fixed;inset:0;height:var(--tg-viewport-height,100%);display:flex;flex-direction:column;max-width:560px;margin:0 auto}
-#main{flex:1;overflow-y:auto;padding:calc(var(--safe-top) + 10px) 14px calc(var(--safe-bot) + 120px)}
+#main{flex:1;overflow-y:auto;padding:12px 14px calc(var(--safe-bot) + 120px)}
+.tabs{flex:none;padding:calc(var(--safe-top) + 10px) 14px 0}
+.tabs-in{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:999px;background:var(--n900)}
+.tabs-in .ind{position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:999px;background:var(--n100);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.tabs-in.notes .ind{transform:translateX(100%)}
+.tabs-in button{position:relative;height:38px;border-radius:999px;font:600 14px var(--body);color:var(--n400);transition:color .2s}
+.tabs-in button.on{color:var(--n900)}
+/* заметки */
+.notes-head{padding:10px 6px 4px;display:flex;align-items:flex-end;justify-content:space-between}
+.notes-head .h{font-size:24px;color:var(--n100)}
+.notes-head .count{padding-bottom:3px}
+.nlist{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.note{background:var(--n900);border-radius:20px;padding:14px 16px;cursor:pointer;transition:background .15s,transform .1s;animation:rise .25s both}
+.note:active{background:var(--n800);transform:scale(.99)}
+@media(hover:hover){.note:hover{background:var(--n800)}}
+.note .nt{font:600 16px/1.3 var(--body);color:var(--n100);overflow-wrap:anywhere}
+.note .nb{margin-top:4px;font:400 14px/1.45 var(--body);color:var(--n400);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;white-space:pre-line}
+.note .nm{display:flex;align-items:center;gap:10px;margin-top:8px;font:400 12px var(--body);color:var(--n500)}
+.note .clip{display:flex;align-items:center;gap:4px;color:var(--b400)}
+.sheet.note #desc{min-height:180px;max-height:340px}
 
 /* календарь */
 .cal{background:var(--n900);border-radius:28px;padding:14px 12px 6px}
@@ -192,6 +211,11 @@ svg{display:block}
 </head>
 <body>
 <div id="app">
+  <div class="tabs"><div class="tabs-in" id="tabs">
+    <span class="ind"></span>
+    <button data-a="tab" data-t="cal" class="on">Календарь</button>
+    <button data-a="tab" data-t="notes">Заметки</button>
+  </div></div>
   <div id="main" class="nosb"></div>
   <button class="fab" data-a="new" aria-label="Добавить план">
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
@@ -213,6 +237,7 @@ svg{display:block}
     <div class="files" id="files"></div>
     <button class="attach" data-a="attach"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Прикрепить файл</button>
     <input type="file" id="fileIn" multiple hidden>
+    <div id="taskFields">
     <div class="lrow"><span class="lbl">Время</span><div class="presets" id="presets"></div></div>
     <div class="wheel" id="wheel">
       <div class="band"></div>
@@ -233,6 +258,7 @@ svg{display:block}
       </div>
     </div>
     <div class="hint" id="hint"></div>
+    </div>
     <button class="save" id="save" data-a="save"></button>
     <button class="del" id="del" data-a="del"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg><span id="delLbl"></span></button>
   </div>
@@ -299,7 +325,7 @@ const cloud=inTG&&ver('6.9')?TG.CloudStorage:null;
 function pruneDone(done){const lim=addDays(toKey(new Date()),-180),o={};for(const k in done)if(k.split('|')[1]>=lim)o[k]=true;return o}
 function persist(){
   S.done=pruneDone(S.done);
-  const data=JSON.stringify({tasks:S.tasks,done:S.done,ts:Date.now()});
+  const data=JSON.stringify({tasks:S.tasks,done:S.done,notes:S.notes,ts:Date.now()});
   try{localStorage.setItem(LS,data)}catch(e){}
   if(!cloud)return;
   clearTimeout(persist.t);
@@ -320,7 +346,7 @@ function load(){
         const s=JSON.parse(keys.map(k=>vals[k]||'').join(''));
         let local=0;try{local=JSON.parse(localStorage.getItem(LS)).ts||0}catch(e){}
         if(s&&Array.isArray(s.tasks)&&(s.ts||0)>=local){
-          S.tasks=s.tasks;S.done=s.done||{};
+          S.tasks=s.tasks;S.done=s.done||{};S.notes=s.notes||[];
           try{localStorage.setItem(LS,JSON.stringify(s))}catch(e){}
           if(!S.sheet)render();
         }
@@ -332,13 +358,17 @@ function load(){
 // ---------- состояние ----------
 const today=toKey(new Date());
 let saved={};try{saved=JSON.parse(localStorage.getItem(LS))||{}}catch(e){}  // кэш до ответа сервера
-const S={today,selected:today,cursor:today,expanded:false,cat:'all',sheet:false,editId:null,
-  form:{title:'',desc:'',files:[],time:'',cat:'work',mode:'none',n:3},tasks:saved.tasks||[],done:saved.done||{}};
+let tab='cal';try{tab=localStorage.getItem('tg-planner-tab')==='notes'?'notes':'cal'}catch(e){}
+const S={today,selected:today,cursor:today,expanded:false,cat:'all',sheet:false,editId:null,tab,kind:'task',
+  form:{title:'',desc:'',files:[],time:'',cat:'work',mode:'none',n:3},tasks:saved.tasks||[],done:saved.done||{},notes:saved.notes||[]};
 const every=f=>f.mode==='none'?0:f.mode==='daily'?1:f.mode==='weekly'?7:f.n;
 
 // ---------- главный экран ----------
 const main=$('main');
 function render(){
+  $('tabs').classList.toggle('notes',S.tab==='notes');
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));
+  if(S.tab==='notes')return renderNotes();
   const ex=S.expanded,cur=fromKey(S.cursor),cm=cur.getMonth(),cy=cur.getFullYear(),sel=S.selected;
   // всегда рисуем месяц целиком; в свёрнутом виде видна только строка недели курсора (см. applyCal)
   const first=new Date(cy,cm,1),off=(first.getDay()+6)%7,dim=new Date(cy,cm+1,0).getDate();
@@ -415,6 +445,34 @@ function render(){
   }
 }
 let slideIn=0;
+
+// ---------- заметки ----------
+function renderNotes(){
+  const list=[...S.notes].sort((a,b)=>(b.updated||b.id)-(a.updated||a.id));
+  const fmt=ts=>{const d=new Date(ts);return `${d.getDate()} ${MONTHS_G[d.getMonth()]}`};
+  const card=n=>{
+    let title=n.title,body=n.desc||'';
+    if(!title){const i=body.indexOf('\n');title=i<0?body:body.slice(0,i);body=i<0?'':body.slice(i+1).trim()}
+    return `<div class="note" data-a="opennote" data-id="${n.id}">
+      <div class="nt">${esc(title||'Файлы')}</div>
+      ${body?`<div class="nb">${esc(body)}</div>`:''}
+      <div class="nm"><span>${fmt(n.updated||n.id)}</span>${n.files&&n.files.length?`<span class="clip">${ICON.clip}${n.files.length}</span>`:''}</div>
+    </div>`};
+  main.innerHTML=`
+    <div class="notes-head"><div class="h">Заметки</div><div class="count">${list.length?`${list.length} ${plural(list.length,['заметка','заметки','заметок'])}`:''}</div></div>
+    ${list.length?`<div class="nlist">${list.map(card).join('')}</div>`:`
+    <div class="empty">
+      <div class="ic">${ICON.doc}</div>
+      <div class="h1 h">Заметок пока нет</div>
+      <p>Записывайте мысли и идеи и прикрепляйте нужные файлы.</p>
+      <button data-a="new">Новая заметка</button>
+    </div>`}`;
+}
+function setTab(t){
+  if(S.tab===t)return;
+  S.tab=t;haptic.tap();try{localStorage.setItem('tg-planner-tab',t)}catch(e){}
+  main.scrollTop=0;render();
+}
 
 // ---------- раскрытие календаря: p = 0 (неделя) … 1 (месяц) ----------
 const ROW=48,CAL={p:0,rows:5,row:0};
@@ -508,8 +566,20 @@ hcol.innerHTML=Array.from({length:24*5},(_,i)=>`<div data-i="${i}">${pad(i%24)}<
 mcol.innerHTML=Array.from({length:60*5},(_,i)=>`<div data-i="${i}">${pad(i%60)}</div>`).join('');
 let userWheel=false;
 
+const canSave=()=>S.kind==='note'?!!(S.form.title.trim()||S.form.desc.trim()||S.form.files.length):!!S.form.title.trim();
 function renderSheet(){
-  const f=S.form,ev=every(f),edited=S.editId&&S.tasks.find(t=>t.id===S.editId);
+  const f=S.form,ev=every(f),note=S.kind==='note',edited=S.editId&&S.tasks.find(t=>t.id===S.editId);
+  sheetEl.classList.toggle('note',note);
+  $('taskFields').style.display=note?'none':'';
+  titleIn.placeholder=note?'Заголовок':'Тема задачи';descIn.placeholder=note?'Текст заметки':'Описание (необязательно)';
+  $('save').textContent=S.editId?'Сохранить':'Добавить';
+  $('save').disabled=!canSave();
+  $('del').classList.toggle('on',!!S.editId);
+  if(note){
+    $('shTitle').textContent=S.editId?'Заметка':'Новая заметка';
+    $('delLbl').textContent='Удалить';
+    return;
+  }
   $('shTitle').textContent=S.editId?'Изменить план':`План на ${short(S.selected)}`;
   $('presets').innerHTML=[['','Весь день'],['09:00','09:00'],['19:00','19:00']].map(([v,l])=>`<button class="preset${f.time===v?' on':''}" data-a="preset" data-v="${v}">${l}</button>`).join('');
   $('wheel').classList.toggle('off',!f.time);
@@ -520,9 +590,6 @@ function renderSheet(){
   const startKey=edited?edited.date:S.selected;
   if(!ev)$('hint').textContent=`Разовая задача на ${short(S.selected)}.`;
   else{const nx=[0,1,2].map(i=>fromKey(addDays(startKey,ev*i)).getDate());$('hint').textContent=`Появится ${repeatLabel(ev)}, начиная с ${short(startKey)}: ${nx.join(', ')}…`}
-  $('save').textContent=S.editId?'Сохранить':'Добавить';
-  $('save').disabled=!f.title.trim();
-  $('del').classList.toggle('on',!!S.editId);
   $('delLbl').textContent=edited&&edited.every?'Удалить всю серию':'Удалить';
   highlightWheels();
 }
@@ -566,14 +633,18 @@ function onWheelScroll(){
   el.addEventListener('click',e=>{const d=e.target.closest('[data-i]');if(d){userWheel=true;el.scrollTo({top:+d.dataset.i*40,behavior:'smooth'})}});
 });
 
-function openSheet(t){
-  S.form=t?{title:t.title,desc:t.desc||'',files:(t.files||[]).map(x=>({...x})),time:t.time,cat:t.cat,mode:modeOf(t.every),n:t.every>1&&t.every!==7?t.every:3}
+function openSheet(t,kind='task'){
+  S.kind=kind;
+  const files=x=>(x.files||[]).map(y=>({...y}));
+  S.form=t?(kind==='note'?{title:t.title,desc:t.desc||'',files:files(t),time:'',cat:'work',mode:'none',n:3}
+                         :{title:t.title,desc:t.desc||'',files:files(t),time:t.time,cat:t.cat,mode:modeOf(t.every),n:t.every>1&&t.every!==7?t.every:3})
           :{title:'',desc:'',files:[],time:'',cat:S.cat!=='all'?S.cat:'work',mode:'none',n:3};
   S.editId=t?t.id:null;S.sheet=true;
-  titleIn.value=S.form.title;descIn.value=S.form.desc;growDesc();
+  titleIn.value=S.form.title;descIn.value=S.form.desc;
+  sheetEl.classList.toggle('note',kind==='note');growDesc();
   sheetEl.scrollTop=0;
   wrap.classList.add('open');
-  renderSheet();renderFiles();syncWheels(S.form.time,false);
+  renderSheet();renderFiles();if(kind!=='note')syncWheels(S.form.time,false);
   if(inTG)TG.BackButton.show();
   haptic.hit();
   if(!t)setTimeout(()=>titleIn.focus({preventScroll:true}),340);
@@ -585,10 +656,17 @@ function closeSheet(){
   if(inTG)TG.BackButton.hide();
 }
 function saveTask(){
-  const f=S.form;if(!f.title.trim())return;
-  const old=(S.editId&&S.tasks.find(t=>t.id===S.editId)?.files)||[];
-  const data={title:f.title.trim(),desc:f.desc.trim(),files:f.files.map(({id,name,type,size})=>({id,name,type,size})),time:f.time,cat:f.cat,every:every(f)};
-  S.tasks=S.editId?S.tasks.map(t=>t.id===S.editId?{...t,...data}:t):[...S.tasks,{id:Date.now(),date:S.selected,...data}];
+  const f=S.form;if(!canSave())return;
+  const note=S.kind==='note',list=note?S.notes:S.tasks;
+  const old=(S.editId&&list.find(t=>t.id===S.editId)?.files)||[];
+  const base={title:f.title.trim(),desc:f.desc.trim(),files:f.files.map(({id,name,type,size})=>({id,name,type,size}))};
+  if(note){
+    const data={...base,updated:Date.now()};
+    S.notes=S.editId?S.notes.map(n=>n.id===S.editId?{...n,...data}:n):[{id:Date.now(),...data},...S.notes];
+  }else{
+    const data={...base,time:f.time,cat:f.cat,every:every(f)};
+    S.tasks=S.editId?S.tasks.map(t=>t.id===S.editId?{...t,...data}:t):[...S.tasks,{id:Date.now(),date:S.selected,...data}];
+  }
   // файлы лежат в IndexedDB на этом устройстве: пишем новые, удаляем убранные
   Promise.all([
     ...f.files.filter(x=>x.blob).map(x=>idb.put(x.id,x.blob)),
@@ -597,16 +675,22 @@ function saveTask(){
   haptic.ok();closeSheet();persist();render();
 }
 function removeTask(){
+  if(S.kind==='note'){
+    const n=S.notes.find(x=>x.id===S.editId);if(!n)return;
+    const go=()=>{S.notes=S.notes.filter(x=>x.id!==n.id);(n.files||[]).forEach(x=>idb.del(x.id).catch(()=>{}));haptic.hit('medium');closeSheet();persist();render()};
+    if(inTG&&ver('6.2'))TG.showConfirm('Удалить заметку?',ok=>ok&&go());else go();
+    return;
+  }
   const t=S.tasks.find(x=>x.id===S.editId);if(!t)return;
   const go=()=>{S.tasks=S.tasks.filter(x=>x.id!==t.id);for(const k in S.done)if(k.startsWith(t.id+'|'))delete S.done[k];(t.files||[]).forEach(x=>idb.del(x.id).catch(()=>{}));haptic.hit('medium');closeSheet();persist();render()};
   if(t.every&&inTG&&ver('6.2'))TG.showConfirm(`Удалить всю серию «${t.title}»?`,ok=>ok&&go());
   else go();
 }
 
-titleIn.addEventListener('input',()=>{S.form.title=titleIn.value;$('save').disabled=!S.form.title.trim()});
+titleIn.addEventListener('input',()=>{S.form.title=titleIn.value;$('save').disabled=!canSave()});
 titleIn.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();descIn.focus()}});
-function growDesc(){descIn.style.height='auto';descIn.style.height=Math.min(180,Math.max(76,descIn.scrollHeight))+'px'}
-descIn.addEventListener('input',()=>{S.form.desc=descIn.value;growDesc()});
+function growDesc(){const n=S.kind==='note';descIn.style.height='auto';descIn.style.height=Math.min(n?340:180,Math.max(n?180:76,descIn.scrollHeight))+'px'}
+descIn.addEventListener('input',()=>{S.form.desc=descIn.value;$('save').disabled=!canSave();growDesc()});
 
 // ---------- вложения: файлы хранятся в IndexedDB на этом телефоне (в Telegram Cloud им не поместиться) ----------
 const idb=(()=>{
@@ -630,7 +714,7 @@ async function getUrl(f){
   const u=URL.createObjectURL(b);urls.set(f.id,u);return u;
 }
 function renderFiles(){
-  const box=$('files');
+  const box=$('files');$('save').disabled=!canSave();
   box.innerHTML=S.form.files.map(f=>{
     const img=(f.type||'').startsWith('image/');
     const ext=(f.name.split('.').pop()||'').slice(0,4);
@@ -710,7 +794,9 @@ document.addEventListener('click',e=>{
       if(on){S.done[key]=true;haptic.hit()}else{delete S.done[key];haptic.tap()}
       persist();render();break}
     case 'open':openSheet(S.tasks.find(t=>String(t.id)===el.dataset.id));break;
-    case 'new':openSheet(null);break;
+    case 'opennote':openSheet(S.notes.find(n=>String(n.id)===el.dataset.id),'note');break;
+    case 'tab':setTab(el.dataset.t);break;
+    case 'new':openSheet(null,S.tab==='notes'?'note':'task');break;
     case 'close':closeSheet();break;
     case 'preset':S.form.time=el.dataset.v;haptic.tap();renderSheet();syncWheels(S.form.time,true);break;
     case 'fcat':S.form.cat=el.dataset.id;haptic.tap();renderSheet();break;
