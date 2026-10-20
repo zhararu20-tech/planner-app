@@ -197,12 +197,29 @@ svg{display:block}
 .attach:active{background:var(--n700)}
 .card .desc{margin-top:4px;font:400 13px/1.4 var(--body);color:var(--n400);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .card .clip{display:flex;align-items:center;gap:4px}
-#viewer{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;padding:calc(var(--safe-top) + 16px) 16px calc(var(--safe-bot) + 16px)}
+#viewer{position:fixed;inset:0;z-index:30;background:var(--bg);display:none;flex-direction:column;max-width:560px;margin:0 auto}
 #viewer.on{display:flex;animation:pop .2s}
-#viewer img{max-width:100%;max-height:calc(100% - 70px);object-fit:contain;border-radius:12px}
-#viewer .vbar{display:flex;gap:10px;margin-top:16px}
-#viewer button{height:44px;padding:0 20px;border-radius:999px;background:var(--n800);color:var(--n100);font:600 14px var(--body)}
-#viewer button:first-child{background:var(--a500);color:var(--n900)}
+.vtop{flex:none;display:flex;align-items:center;gap:10px;padding:calc(var(--safe-top) + 10px) 14px 10px}
+.vname{flex:1;min-width:0;font:600 15px var(--body);color:var(--n100);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.vbtn{width:38px;height:38px;border-radius:999px;background:var(--n900);color:var(--n200);display:flex;align-items:center;justify-content:center;flex:none}
+.vbtn:active{background:var(--n800)}
+.vbody{flex:1;min-height:0;overflow:auto;padding:4px 8px calc(var(--safe-bot) + 16px);-webkit-overflow-scrolling:touch;user-select:text;-webkit-user-select:text}
+.vbody.image,.vbody.video{display:flex;align-items:center;justify-content:center}
+.vbody img{max-width:100%;max-height:100%;object-fit:contain;border-radius:12px;cursor:zoom-in}
+.vbody.zoom{display:block}.vbody.zoom img{max-width:none;max-height:none;width:220%;cursor:zoom-out}
+.vbody video{max-width:100%;max-height:100%;border-radius:12px;background:#000}
+.vbody.pdf canvas{display:block;margin:0 auto 8px;border-radius:6px;background:#fff}
+.vbody.text{padding:4px 14px}
+.vtext{margin:0;font:400 13px/1.5 ui-monospace,Menlo,Consolas,monospace;color:var(--n200);white-space:pre-wrap;overflow-wrap:anywhere}
+.vload{padding:60px 0;text-align:center;font:400 14px var(--body);color:var(--n500)}
+.vmsg{display:flex;flex-direction:column;align-items:center;gap:6px;padding:48px 24px;text-align:center;color:var(--n300)}
+.vmsg svg{width:40px;height:40px;color:var(--n500);margin-bottom:8px}
+.vm1{font:600 16px var(--body);color:var(--n100);overflow-wrap:anywhere}
+.vm2{font:400 13px var(--body);color:var(--n500)}
+.vmsg p{margin:10px 0 0;font:400 14px/1.45 var(--body);color:var(--n400)}
+.vmsg button{margin-top:14px;height:44px;padding:0 22px;border-radius:999px;background:var(--a500);color:var(--n900);font:600 14px var(--body)}
+.vmsg audio{margin-top:16px;width:100%;max-width:340px}
+.clip{cursor:pointer}
 
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 @keyframes pop{from{opacity:0;transform:scale(.96)}}
@@ -264,7 +281,14 @@ svg{display:block}
   </div>
 </div>
 
-<div id="viewer"><img id="vimg" alt=""><div class="vbar"><button data-a="vshare">Сохранить / поделиться</button><button data-a="vclose">Закрыть</button></div></div>
+<div id="viewer">
+  <div class="vtop">
+    <button class="vbtn" data-a="vclose" aria-label="Закрыть"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div class="vname" id="vname"></div>
+    <button class="vbtn" data-a="vshare" aria-label="Поделиться"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg></button>
+  </div>
+  <div class="vbody" id="vbody"></div>
+</div>
 
 <script>
 // ---------- утилиты дат (всё в локальном времени) ----------
@@ -315,7 +339,7 @@ if(inTG){
   try{TG.setHeaderColor('#1c1a17');TG.setBackgroundColor('#1c1a17')}catch(e){}
   if(ver('7.10'))try{TG.setBottomBarColor('#1c1a17')}catch(e){}
   if(ver('7.7'))try{TG.disableVerticalSwipes()}catch(e){}
-  TG.BackButton.onClick(()=>closeSheet());
+  TG.BackButton.onClick(()=>backAction());
 }
 
 // ---------- данные: Telegram CloudStorage (в вашем аккаунте, без сервера) + localStorage для мгновенного старта ----------
@@ -398,7 +422,7 @@ function render(){
       <div class="card" data-a="open" data-id="${t.id}">
         <span class="stripe" style="background:${c.color}"></span>
         <div class="body"><div class="t">${esc(t.title)}</div>
-          <div class="meta"><span>${c.name}</span>${t.every?`<span class="rep">${ICON.repeat}${repeatLabel(t.every)}</span>`:''}${t.files&&t.files.length?`<span class="clip">${ICON.clip}${t.files.length}</span>`:''}</div>
+          <div class="meta"><span>${c.name}</span>${t.every?`<span class="rep">${ICON.repeat}${repeatLabel(t.every)}</span>`:''}${t.files&&t.files.length?`<span class="clip" data-a="clip" data-k="task" data-id="${t.id}">${ICON.clip}${t.files.length}</span>`:''}</div>
           ${t.desc?`<div class="desc">${esc(t.desc)}</div>`:''}</div>
         <button class="cb" data-a="toggle" data-id="${t.id}" aria-label="Выполнено" style="${dn?`background:${c.color};box-shadow:inset 0 0 0 2px ${c.color}`:''}">${ICON.check}</button>
       </div>
@@ -456,7 +480,7 @@ function renderNotes(){
     return `<div class="note" data-a="opennote" data-id="${n.id}">
       <div class="nt">${esc(title||'Файлы')}</div>
       ${body?`<div class="nb">${esc(body)}</div>`:''}
-      <div class="nm"><span>${fmt(n.updated||n.id)}</span>${n.files&&n.files.length?`<span class="clip">${ICON.clip}${n.files.length}</span>`:''}</div>
+      <div class="nm"><span>${fmt(n.updated||n.id)}</span>${n.files&&n.files.length?`<span class="clip" data-a="clip" data-k="note" data-id="${n.id}">${ICON.clip}${n.files.length}</span>`:''}</div>
     </div>`};
   main.innerHTML=`
     <div class="notes-head"><div class="h">Заметки</div><div class="count">${list.length?`${list.length} ${plural(list.length,['заметка','заметки','заметок'])}`:''}</div></div>
@@ -738,18 +762,84 @@ function addFiles(list){
 }
 $('fileIn').addEventListener('change',e=>{addFiles([...e.target.files]);e.target.value=''});
 
-let viewing=null;
+// ---------- просмотр файлов внутри планера ----------
+// Telegram не даёт скачивать/открывать blob-файлы системой, поэтому показываем сами: картинки, PDF, видео, аудио, текст.
+const fileKind=f=>{
+  const t=(f.type||'').toLowerCase(),n=f.name.toLowerCase();
+  if(t.startsWith('image/')||/\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/.test(n))return 'image';
+  if(t.startsWith('video/')||/\.(mp4|mov|webm|m4v|mkv)$/.test(n))return 'video';
+  if(t.startsWith('audio/')||/\.(mp3|m4a|wav|ogg|oga|aac|flac|opus)$/.test(n))return 'audio';
+  if(t==='application/pdf'||n.endsWith('.pdf'))return 'pdf';
+  if(t.startsWith('text/')||/json|xml|javascript|yaml/.test(t)||/\.(txt|md|csv|tsv|json|log|xml|ya?ml|ini|js|ts|py|html?|css|sql|sh|bat|java|c|cpp|cs|go|rs|php|rtf)$/.test(n))return 'text';
+  return 'other';
+};
+let viewing=null,vtoken=0;
+const viewerOpen=()=>$('viewer').classList.contains('on');
+function closeViewer(){
+  if(!viewerOpen())return;
+  vtoken++;viewing=null;
+  $('viewer').classList.remove('on');$('vbody').innerHTML='';
+  if(inTG&&!S.sheet)TG.BackButton.hide();
+}
+const backAction=()=>viewerOpen()?closeViewer():closeSheet();
 async function openFile(f){
+  if(!f)return;
   const blob=await getBlob(f);
   if(!blob)return alertMsg('Этого файла нет на этом устройстве: вложения хранятся только на том телефоне, где их добавили.');
-  if((f.type||'').startsWith('image/')){
-    viewing={f,blob};$('vimg').src=await getUrl(f);$('viewer').classList.add('on');
-  }else saveFile(f,blob);
+  const my=++vtoken,body=$('vbody'),kind=fileKind(f);
+  viewing={f,blob};
+  $('vname').textContent=f.name;
+  body.className='vbody '+kind;body.innerHTML='<div class="vload">Открываю…</div>';
+  $('viewer').classList.add('on');body.scrollTop=0;
+  if(inTG)TG.BackButton.show();
+  haptic.tap();
+  const alive=()=>my===vtoken;
+  const other=msg=>{if(!alive())return;body.className='vbody other';body.innerHTML=`<div class="vmsg">${ICON.doc}<div class="vm1">${esc(f.name)}</div><div class="vm2">${fmtSize(f.size)}</div><p>${msg||'Этот формат нельзя показать внутри планера.'}</p><button data-a="vshare">Открыть в другом приложении</button></div>`};
+  try{
+    if(kind==='image'){
+      const u=await getUrl(f);if(!alive())return;
+      body.innerHTML=`<img alt="" src="${u}">`;
+      const im=body.querySelector('img');im.onerror=()=>other('Не получилось показать картинку (формат не поддерживается на этом устройстве).');
+      im.onclick=()=>body.classList.toggle('zoom');
+    }else if(kind==='video'||kind==='audio'){
+      const u=await getUrl(f);if(!alive())return;
+      body.innerHTML=kind==='video'?`<video controls playsinline autoplay src="${u}"></video>`:`<div class="vmsg">${ICON.doc}<div class="vm1">${esc(f.name)}</div><audio controls autoplay src="${u}"></audio></div>`;
+      body.querySelector(kind).onerror=()=>other('Не получилось воспроизвести: формат не поддерживается на этом устройстве.');
+    }else if(kind==='pdf'){
+      await renderPdf(blob,body,alive);
+    }else if(kind==='text'){
+      const txt=await blob.slice(0,400000).text();if(!alive())return;
+      body.innerHTML=`<pre class="vtext">${esc(txt)}${blob.size>400000?'\n\n… файл обрезан, показаны первые 400 КБ':''}</pre>`;
+    }else other();
+  }catch(e){other('Не получилось открыть файл.')}
 }
+function loadPdfJs(){
+  if(window.pdfjsLib)return Promise.resolve();
+  return loadPdfJs.p||(loadPdfJs.p=new Promise((res,rej)=>{
+    const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';res()};
+    s.onerror=()=>{loadPdfJs.p=null;rej(new Error('pdf.js'))};document.head.appendChild(s);
+  }));
+}
+async function renderPdf(blob,body,alive){
+  await loadPdfJs();
+  const pdf=await pdfjsLib.getDocument({data:await blob.arrayBuffer()}).promise;
+  if(!alive())return;
+  body.innerHTML='';
+  const w=Math.max(200,body.clientWidth-16),dpr=Math.min(2,window.devicePixelRatio||1);
+  for(let i=1;i<=pdf.numPages&&alive();i++){
+    const page=await pdf.getPage(i),base=page.getViewport({scale:1}),vp=page.getViewport({scale:w/base.width*dpr});
+    const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;c.style.width=w+'px';c.style.height=vp.height/dpr+'px';
+    body.appendChild(c);
+    await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+  }
+}
+// «Открыть в другом приложении»: системное меню «Поделиться», а если его нет — обычное скачивание
 async function saveFile(f,blob){
   const file=new File([blob],f.name,{type:f.type||'application/octet-stream'});
   try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});return}}catch(e){if(e.name==='AbortError')return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>alertMsg('Если файл не скачался, откройте планер в браузере: в Telegram скачивание из приложения может быть отключено.'),600);
 }
 
 // ---------- шторка тянется за ползунок и закрывается свайпом вниз ----------
@@ -806,13 +896,19 @@ document.addEventListener('click',e=>{
     case 'attach':$('fileIn').click();break;
     case 'rmfile':e.stopPropagation();S.form.files=S.form.files.filter(f=>f.id!==el.dataset.id);haptic.tap();renderFiles();break;
     case 'openfile':openFile(S.form.files.find(f=>f.id===el.dataset.id));break;
-    case 'vclose':$('viewer').classList.remove('on');viewing=null;break;
+    case 'vclose':closeViewer();break;
+    case 'clip':{e.stopPropagation();
+      const it=(el.dataset.k==='note'?S.notes:S.tasks).find(x=>String(x.id)===el.dataset.id);
+      if(!it||!it.files||!it.files.length)break;
+      if(it.files.length===1)openFile(it.files[0]);      // один файл — открываем сразу
+      else{openSheet(it,el.dataset.k);setTimeout(()=>$('files').scrollIntoView({block:'center',behavior:'smooth'}),400)}
+      break}
     case 'vshare':if(viewing)saveFile(viewing.f,viewing.blob);break;
     case 'save':saveTask();break;
     case 'del':removeTask();break;
   }
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')backAction()});
 
 // смена дня, если приложение открыто через полночь
 setInterval(()=>{const t=toKey(new Date());if(t!==S.today){if(S.selected===S.today)S.selected=S.cursor=t;S.today=t;render()}},60000);
